@@ -1,0 +1,59 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Kata Archery - Agendamento</title>
+    <!-- CSS do Bootstrap -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+</head>
+<body class="bg-light">
+
+<div class="container mt-4">
+    <div class="text-center mb-4">
+        <h2>🎯 Kata Archery</h2>
+        <p class="text-muted">Agende seu horário de treino</p>
+    </div>
+
+<!-- Bloco de Mensagens de Alerta -->
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="row">
+        <!-- O Django vai repetir este bloco para cada horário no banco -->
+        {% for horario in horarios %}
+        <div class="col-12 col-md-6 mb-3">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title text-primary">
+                        {{ horario.get_dia_semana_display }}
+                    </h5>
+                    <p class="card-text fs-4 fw-bold">
+                        {{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}
+                    </p>
+                    <p class="text-muted">Vagas Totais: {{ horario.vagas_totais }}</p>
+                    
+                    <a href="{% url 'detalhes_reserva' horario.id %}" class="btn btn-success w-100 py-2 fw-bold">
+                    Reservar Vaga (R$ 20,00)
+                    </a>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <div class="col-12 text-center">
+            <div class="alert alert-warning" role="alert">
+                Nenhum horário disponível no momento.
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+</body>
+</html>
