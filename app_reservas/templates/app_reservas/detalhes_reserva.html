@@ -19,28 +19,45 @@
             <ul class="list-group list-group-flush mb-4">
                 <li class="list-group-item d-flex justify-content-between">
                     <strong>Data da Aula:</strong> 
-                    <span>
-                        {{ horario.get_dia_semana_display }} 
-                        ({{ data_aula|date:"d/m/Y" }})
-                    </span>
+                    <span>{{ horario.get_dia_semana_display }} ({{ data_aula|date:"d/m/Y" }})</span>
                 </li>
                 <li class="list-group-item d-flex justify-content-between">
-                    <strong>Horário:</strong> <span>{{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}</span>
+                    <strong>Horário:</strong> 
+                    <span>{{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}</span>
                 </li>
+                
+                {% if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0 %}
+                <li class="list-group-item d-flex justify-content-between text-success">
+                    <strong>Plano Mensal Ativo:</strong> <strong>1 Aula será descontada</strong>
+                </li>
+                {% else %}
                 <li class="list-group-item d-flex justify-content-between text-success">
                     <strong>Valor Antecipado:</strong> <strong>R$ 20,00</strong>
                 </li>
+                {% endif %}
             </ul>
 
+            {% if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0 %}
+            <div class="alert alert-success text-center" role="alert">
+                <small>Seu saldo atual é de {{ request.user.aulas_restantes }} aulas.</small>
+            </div>
+            {% else %}
             <div class="alert alert-info text-center" role="alert">
                 <small>Restante (R$ 30,00) a ser pago no local da aula.</small>
             </div>
+            {% endif %}
 
             <form method="POST">
                 {% csrf_token %}
-                <button type="submit" class="btn btn-success w-100 fw-bold py-2">
-                    Confirmar e Gerar Pix
-                </button>
+                {% if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0 %}
+                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
+                        Confirmar Presença (Usar Plano)
+                    </button>
+                {% else %}
+                    <button type="submit" class="btn btn-success w-100 fw-bold py-2">
+                        Confirmar e Gerar Pix
+                    </button>
+                {% endif %}
             </form>
             
             <div class="text-center mt-3">

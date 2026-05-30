@@ -42,6 +42,25 @@ def detalhes_reserva(request, horario_id):
         if vagas_ocupadas >= horario.vagas_totais:
             messages.error(request, 'Desculpe, a última vaga foi preenchida.')
             return redirect('lista_horarios')
+        
+        # --- NOVA LÓGICA: Mensalista ---
+        # Verifica se é plano mensal e se tem saldo de aulas
+        if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0:
+            
+            # Cria a reserva já confirmada
+            nova_reserva = Reserva.objects.create(
+                atleta=request.user,
+                horario=horario,
+                data_aula=data_proxima_aula,
+                status='PAGO' # O status 'PAGO' garante o nome na lista
+            )
+            
+            # Desconta 1 aula do pacote do aluno e salva no banco
+            request.user.aulas_restantes -= 1
+            request.user.save()
+
+            messages.success(request, f'Reserva confirmada! Você usou 1 aula do seu pacote. Restam: {request.user.aulas_restantes}.')
+            return redirect('lista_horarios')
 
         # 1. Salva a reserva inicial como PENDENTE
         nova_reserva = Reserva.objects.create(
