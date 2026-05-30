@@ -2,8 +2,16 @@ from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin
 from .models import Atleta, Horario, Reserva
 
-# Registra o seu usuário customizado no admin
-admin.site.register(Atleta, UserAdmin)
+class AtletaAdmin(UserAdmin):
+    # Adiciona a nossa seção "Informações do Plano" na tela de edição
+    fieldsets = UserAdmin.fieldsets + (
+        ('Informações do Plano', {'fields': ('tipo_plano', 'aulas_restantes')}),
+    )
+    # Mostra essas colunas na lista geral de usuários para facilitar sua vida
+    list_display = ('username', 'email', 'first_name', 'last_name', 'tipo_plano', 'aulas_restantes')
+
+# Registra o Atleta usando as novas regras
+admin.site.register(Atleta, AtletaAdmin)
 
 @admin.register(Horario)
 class HorarioAdmin(admin.ModelAdmin):
