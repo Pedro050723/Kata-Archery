@@ -19,7 +19,7 @@ def lista_horarios(request):
     }
     return render(request, 'app_reservas/lista_horarios.html', contexto)
 
-@login_required(login_url='/admin/login/')
+@login_required
 def detalhes_reserva(request, horario_id):
     horario = get_object_or_404(Horario, id=horario_id)
     
