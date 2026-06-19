@@ -28,7 +28,7 @@ MERCADOPAGO_ACCESS_TOKEN = os.getenv('MERCADOPAGO_ACCESS_TOKEN')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'Pedro050723.pythonanywhere.com']
+ALLOWED_HOSTS = ['127.0.0.1', 'localhost', 'Pedro050723.pythonanywhere.com','www.clubekataarchery.com.br','clubekataarchery.com.br']
 
 load_dotenv()
 # Application definition

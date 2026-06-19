@@ -49,6 +49,8 @@ class Reserva(models.Model):
         ('PENDENTE', 'Aguardando Pix'),
         ('PAGO', 'Confirmado'),
         ('CANCELADO', 'Cancelado/Expirado'),
+        ('COMPARECEU', 'Compareceu'),
+        ('FALTOU', 'Faltou'),
     ]
 
     atleta = models.ForeignKey(Atleta, on_delete=models.CASCADE, related_name='reservas')

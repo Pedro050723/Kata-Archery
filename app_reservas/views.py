@@ -5,7 +5,8 @@ from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
 from django.conf import settings
-from datetime import datetime, timedelta
+from django.contrib.admin.views.decorators import staff_member_required
+from datetime import datetime, timedelta, date
 import mercadopago
 from .models import Horario, Reserva
 
@@ -75,7 +76,7 @@ def detalhes_reserva(request, horario_id):
 
         # 3. Prepara os dados do Pix
         # Nota: O Mercado Pago exige um e-mail. Se o usuário não tiver, passamos um fictício.
-        email_aluno = request.user.email if request.user.email else "aluno@kataarchery.com"
+        email_aluno = "test@testuser.com"
         
         payment_data = {
             "transaction_amount": 20.00,
@@ -91,6 +92,10 @@ def detalhes_reserva(request, horario_id):
         # 4. Faz a requisição para gerar o Pix
         result = sdk.payment().create(payment_data)
         payment = result["response"]
+
+        print("\n--- RETORNO REAL DO MERCADO PAGO ---")
+        print(payment)
+        print("------------------------------------\n")
 
         # Se houver erro na API (ex: chave errada), cancela a reserva e avisa
         if "id" not in payment:
@@ -157,3 +162,36 @@ def mercadopago_webhook(request):
 
     # Se alguém tentar acessar a URL pelo navegador (GET), bloqueia.
     return JsonResponse({'error': 'Método não permitido'}, status=405)
+
+@staff_member_required(login_url='login')
+def painel_instrutor(request):
+    hoje = date.today()
+    
+    # Busca apenas reservas de hoje para frente que estejam pagas
+    reservas_confirmadas = Reserva.objects.filter(
+        data_aula__gte=hoje,
+        status='PAGO'
+    ).order_by('data_aula', 'horario__hora_inicio')
+
+    contexto = {
+        'reservas': reservas_confirmadas,
+        'hoje': hoje
+    }
+    return render(request, 'app_reservas/painel_instrutor.html', contexto)
+
+@staff_member_required(login_url='login')
+def atualizar_presenca(request, reserva_id, acao):
+    reserva = get_object_or_404(Reserva, id=reserva_id)
+    
+    # Apenas como segurança, garantimos que é um POST
+    if request.method == 'POST':
+        if acao == 'compareceu':
+            reserva.status = 'COMPARECEU'
+            messages.success(request, f'✅ Presença de {reserva.atleta.first_name} confirmada!')
+        elif acao == 'faltou':
+            reserva.status = 'FALTOU'
+            messages.warning(request, f'❌ Falta de {reserva.atleta.first_name} registrada.')
+            
+        reserva.save()
+        
+    return redirect('painel_instrutor')
