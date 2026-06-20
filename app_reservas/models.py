@@ -33,6 +33,12 @@ class Horario(models.Model):
         ('SAB', 'Sábado'),
     ]
 
+    data_exata = models.DateField(
+        null=True, 
+        blank=True, 
+        help_text="Preencha APENAS se for um evento de dia único. Deixe em branco para turmas que se repetem toda semana."
+    )
+
     dia_semana = models.CharField(max_length=3, choices=DIAS_SEMANA)
     hora_inicio = models.TimeField()
     hora_fim = models.TimeField()

@@ -4,6 +4,7 @@ from django.views.decorators.csrf import csrf_exempt
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
+from django.contrib.auth import logout
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from datetime import datetime, timedelta, date
@@ -12,53 +13,58 @@ import mercadopago
 from .models import Horario, Reserva
 
 def lista_horarios(request):
-    # 1. Busca todos os horários ativos
     horarios = Horario.objects.filter(ativo=True)
-    
-    # 2. Mapa completo com os 7 dias da semana
-    mapa_dias = {
-        'DOM': 6, 
-        'SEG': 0, 
-        'TER': 1, 
-        'QUA': 2, 
-        'QUI': 3, 
-        'SEX': 4, 
-        'SAB': 5
-    }
-    
+    mapa_dias = {'DOM': 6, 'SEG': 0, 'TER': 1, 'QUA': 2, 'QUI': 3, 'SEX': 4, 'SAB': 5}
     agora = timezone.localtime(timezone.now())
     hoje = agora.date()
     
-    # 3. Passa por cada horário calculando a sua próxima data real
-    for horario in horarios:
-        dia_alvo = mapa_dias[horario.dia_semana]
-        dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
-        
-        # Se a aula for hoje, mas o horário já passou, agenda para a semana que vem
-        if dias_faltando == 0 and agora.time() > horario.hora_inicio:
-            dias_faltando = 7
-            
-        # Cria um atributo temporário na memória chamado 'proxima_data'
-        horario.proxima_data = hoje + timedelta(days=dias_faltando)
+    # Vamos criar uma nova lista apenas com as turmas que ainda não passaram
+    horarios_disponiveis = []
     
-    # 4. Envia os dados atualizados para o HTML
+    for horario in horarios:
+        # SE FOR UM EVENTO ÚNICO (Tem data_exata)
+        if horario.data_exata:
+            # Verifica se o evento já passou (Data antiga OU Data de hoje mas horário já passou)
+            if hoje > horario.data_exata or (hoje == horario.data_exata and agora.time() > horario.hora_inicio):
+                continue # Pula este horário, ele não vai para a tela
+                
+            horario.proxima_data = horario.data_exata
+            
+        # SE FOR UMA TURMA SEMANAL COMUM (Não tem data_exata)
+        else:
+            dia_alvo = mapa_dias[horario.dia_semana]
+            dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
+            if dias_faltando == 0 and agora.time() > horario.hora_inicio:
+                dias_faltando = 7
+            horario.proxima_data = hoje + timedelta(days=dias_faltando)
+            
+        horarios_disponiveis.append(horario)
+    
     contexto = {
-        'horarios': horarios
+        'horarios': horarios_disponiveis # Passa a lista filtrada para o HTML
     }
     return render(request, 'app_reservas/lista_horarios.html', contexto)
 
 def detalhes_reserva(request, horario_id):
     horario = get_object_or_404(Horario, id=horario_id)
-    
-    # --- Cálculo da Data ---
-    mapa_dias = {'DOM': 6, 'SEG': 0, 'TER': 1, 'QUA': 2, 'QUI': 3, 'SEX': 4, 'SAB': 5}
     agora = timezone.localtime(timezone.now())
     hoje = agora.date()
-    dia_alvo = mapa_dias[horario.dia_semana]
-    dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
-    if dias_faltando == 0 and agora.time() > horario.hora_inicio:
-        dias_faltando = 7
-    data_proxima_aula = hoje + timedelta(days=dias_faltando)
+    
+    # --- NOVO CÁLCULO DA DATA ---
+    if horario.data_exata:
+        data_proxima_aula = horario.data_exata
+        
+        # Trava de segurança: Se alguém tentar aceder pelo link direto de um evento que já passou
+        if hoje > data_proxima_aula or (hoje == data_proxima_aula and agora.time() > horario.hora_inicio):
+            messages.error(request, 'Este evento já foi encerrado e não aceita mais reservas.')
+            return redirect('lista_horarios')
+    else:
+        mapa_dias = {'DOM': 6, 'SEG': 0, 'TER': 1, 'QUA': 2, 'QUI': 3, 'SEX': 4, 'SAB': 5}
+        dia_alvo = mapa_dias[horario.dia_semana]
+        dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
+        if dias_faltando == 0 and agora.time() > horario.hora_inicio:
+            dias_faltando = 7
+        data_proxima_aula = hoje + timedelta(days=dias_faltando)
 
     # --- NOVA BUSCA: Recolha as reservas ativas para esta turma ---
     reservas_turma = Reserva.objects.filter(
@@ -223,3 +229,8 @@ def atualizar_presenca(request, reserva_id, acao):
         reserva.save()
         
     return redirect('painel_instrutor')
+
+def sair_conta(request):
+    logout(request)
+    messages.info(request, "Você saiu da sua conta com segurança. Até a próxima!")
+    return redirect('lista_horarios')

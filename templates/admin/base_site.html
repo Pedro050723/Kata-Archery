@@ -1,0 +1,68 @@
+{% extends "admin/base.html" %}
+
+{% block title %}{{ title }} | Admin Kata Archery{% endblock %}
+
+{% block branding %}
+<h1 id="site-name"><a href="{% url 'admin:index' %}">Painel Kata Archery</a></h1>
+{% endblock %}
+
+{% block extrastyle %}
+<style>
+    :root {
+        /* Paleta Roxa do Clube */
+        --primary: #8a2be2;
+        --secondary: #5c2092;
+        --accent: #d4adfc;
+        
+        /* Fundo principal e Textos */
+        --body-fg: #f8f8f8;
+        --body-bg: #050505;
+        --body-quiet-color: #bfa3df;
+        --body-loud-color: #ffffff;
+        
+        /* Cabeçalho e Barras (Roxo Profundo) */
+        --header-color: #ffffff;
+        --header-branding-bg: #000000;
+        --header-bg: #1d0b33;
+        --header-link-color: #ffffff;
+        
+        /* Links e Bordas */
+        --breadcrumbs-fg: #d4adfc;
+        --breadcrumbs-bg: #1d0b33;
+        --link-fg: #d4adfc;
+        --link-hover-color: #a755f7;
+        --hairline-color: #4a1979;
+        --border-color: #5c2092;
+        
+        /* Botões */
+        --button-bg: #8a2be2;
+        --button-hover-bg: #6a1baf;
+        --default-button-bg: #8a2be2;
+        --default-button-hover-bg: #6a1baf;
+        
+        /* Fundos de tabelas e caixas de formulário (Sem cinza) */
+        --darkened-bg: #291147;
+        --selected-bg: #3b1866;
+        --selected-row: #2e144f;
+    }
+
+    /* Ajustes da Tela de Login */
+    body.login {
+        background-color: #050505;
+    }
+    .login #content {
+        background-color: #1d0b33; /* Roxo profundo no painel */
+        border: 1px solid #5c2092;
+        box-shadow: 0 4px 20px rgba(138, 43, 226, 0.3);
+        border-radius: 8px;
+    }
+    #login-form .form-row input {
+        background-color: #291147; /* Roxo médio nos campos de texto */
+        color: #ffffff;
+        border: 1px solid #6b28a8;
+    }
+    #login-form .form-row input:focus {
+        border-color: #a755f7;
+    }
+</style>
+{% endblock %}

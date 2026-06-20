@@ -1,63 +1,56 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Painel do Instrutor</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+{% extends 'base.html' %}
 
-<div class="container py-4" style="max-width: 600px;">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h3 class="text-success fw-bold m-0">🎯 Lista de Presença</h3>
-        <a href="{% url 'lista_horarios' %}" class="btn btn-outline-secondary btn-sm">Voltar ao site</a>
-    </div>
+{% block content %}
+<h2 class="text-primary fw-bold mb-4 text-center text-md-start">Painel do Instrutor</h2>
 
-    {% if reservas %}
-        {% regroup reservas by data_aula as reservas_por_data %}
-        
-        {% for grupo in reservas_por_data %}
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-header bg-success text-white fw-bold">
-                    {{ grupo.grouper|date:"l, d \d\e F" }} 
-                    {% if grupo.grouper == hoje %}(Hoje){% endif %}
-                </div>
-                <ul class="list-group list-group-flush">
-                    {% for reserva in grupo.list %}
-                        <li class="list-group-item d-flex justify-content-between align-items-center">
-                            <div>
-                                <strong>{{ reserva.horario.hora_inicio|time:"H:i" }}</strong> - 
-                                {{ reserva.atleta.first_name }} {{ reserva.atleta.last_name }}
-                            </div>
-                            
-                            <div class="d-flex gap-2">
-                                <form method="POST" action="{% url 'atualizar_presenca' reserva.id 'compareceu' %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-success fw-bold" title="Confirmar Presença">
-                                        ✔️ Compareceu
-                                    </button>
-                                </form>
+{% if reservas_por_dia %}
+    <div class="row">
+        {% for grupo in reservas_por_dia %}
+            <div class="col-12 col-lg-6 mb-4">
+                <div class="card shadow-sm h-100">
+                    <div class="card-header bg-dark border-bottom border-secondary text-light fw-bold py-3">
+                        📅 {{ grupo.data|date:"d/m/Y" }}
+                    </div>
+                    <ul class="list-group list-group-flush rounded-bottom">
+                        {% for reserva in grupo.list %}
+                            <li class="list-group-item d-flex flex-column flex-md-row justify-content-between align-items-md-center py-3" style="background-color: #1a1a1a; border-color: #33124d;">
                                 
-                                <form method="POST" action="{% url 'atualizar_presenca' reserva.id 'faltou' %}">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger fw-bold" title="Registrar Falta">
-                                        ❌ Faltou
-                                    </button>
-                                </form>
-                            </div>
-                        </li>
-                    {% endfor %}
-                </ul>
+                                <div class="mb-2 mb-md-0 text-light">
+                                    <strong class="text-primary me-2">{{ reserva.horario.hora_inicio|time:"H:i" }}</strong> 
+                                    {% if reserva.atleta %}
+                                        {{ reserva.atleta.first_name }} {{ reserva.atleta.last_name }}
+                                    {% else %}
+                                        {{ reserva.nome_avulso }} <span class="badge bg-secondary ms-1">Avulso</span>
+                                    {% endif %}
+                                </div>
+                                
+                                <div class="d-flex gap-2">
+                                    <form method="POST" action="{% url 'atualizar_presenca' reserva.id 'compareceu' %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-success fw-bold px-3" title="Confirmar Presença">
+                                            ✔️ Presença
+                                        </button>
+                                    </form>
+                                    
+                                    <form method="POST" action="{% url 'atualizar_presenca' reserva.id 'faltou' %}">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-outline-danger fw-bold px-3" title="Registrar Falta">
+                                            ❌ Falta
+                                        </button>
+                                    </form>
+                                </div>
+
+                            </li>
+                        {% endfor %}
+                    </ul>
+                </div>
             </div>
         {% endfor %}
-    {% else %}
-        <div class="alert alert-info text-center">
-            Nenhuma reserva confirmada para as próximas aulas.
-        </div>
-    {% endif %}
+    </div>
+{% else %}
+    <div class="alert alert-dark border-secondary text-center text-light mt-4" role="alert">
+        Não há nenhuma reserva pendente de chamada de alunos pagantes hoje.
+    </div>
+{% endif %}
 
-</div>
-
-</body>
-</html>
+{% endblock %}

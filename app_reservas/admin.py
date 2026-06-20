@@ -15,7 +15,7 @@ admin.site.register(Atleta, AtletaAdmin)
 
 @admin.register(Horario)
 class HorarioAdmin(admin.ModelAdmin):
-    list_display = ('dia_semana', 'hora_inicio', 'hora_fim', 'vagas_totais', 'ativo')
+    list_display = ('dia_semana', 'data_exata', 'hora_inicio', 'hora_fim', 'vagas_totais', 'ativo')
     list_filter = ('dia_semana', 'ativo')
 
 @admin.register(Reserva)

@@ -1,0 +1,77 @@
+/* static/css/style.css */
+
+/* Fundo Geral e Textos */
+body {
+    background-color: #050505; /* Preto absoluto */
+    color: #f8f8f8; /* Branco super claro para leitura perfeita */
+}
+
+/* Navbar */
+.navbar-custom {
+    background-color: #000000;
+    border-bottom: 2px solid #8a2be2;
+}
+
+/* Cards (Agora em Roxo Profundo em vez de Cinza) */
+.card {
+    background-color: #1d0b33; /* Roxo bem escuro, destaca do preto */
+    border: 1px solid #5c2092; /* Borda roxa um pouco mais clara */
+    box-shadow: 0 4px 15px rgba(138, 43, 226, 0.2);
+    color: #ffffff;
+}
+
+/* Campos de Formulário (Roxo Médio para destacar do card) */
+.form-control {
+    background-color: #291147 !important; 
+    color: #ffffff !important; 
+    border: 1px solid #6b28a8 !important; 
+}
+
+.form-control::placeholder {
+    color: #bfa3df !important; /* Placeholder em um tom de lilás claro */
+}
+
+.form-control:focus {
+    background-color: #3b1866 !important; /* Roxo mais vibrante ao clicar */
+    border-color: #a755f7 !important;
+    box-shadow: 0 0 8px rgba(167, 85, 247, 0.6) !important;
+}
+
+/* Textos em destaque */
+.text-primary {
+    color: #d4adfc !important; /* Lilás claro para dar contraste máximo */
+}
+
+/* Textos secundários (Substituindo o text-muted antigo) */
+.text-secondary, .text-muted {
+    color: #bfa3df !important;
+}
+
+/* Botão Principal Roxo */
+.btn-roxo {
+    background-color: #8a2be2;
+    color: #ffffff;
+    border: 1px solid #9b4ce3;
+    transition: all 0.3s ease;
+}
+
+.btn-roxo:hover {
+    background-color: #6a1baf;
+    color: #ffffff;
+    box-shadow: 0 0 12px rgba(138, 43, 226, 0.8);
+    border-color: #a755f7;
+}
+
+/* Listas (Área de presença) */
+.list-group-item {
+    background-color: #1d0b33; /* Mesma cor do card */
+    color: #f8f8f8;
+    border-color: #4a1979; /* Linha divisória em roxo puro */
+}
+
+/* Alertas escuros (Usados quando não há horários) */
+.alert-dark {
+    background-color: #1d0b33;
+    border-color: #5c2092;
+    color: #d4adfc;
+}

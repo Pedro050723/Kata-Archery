@@ -1,117 +1,77 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Confirmar Reserva</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-</head>
-<body class="bg-light">
+{% extends 'base.html' %}
 
-<div class="container mt-5 max-w-md" style="max-width: 500px;">
-    <div class="card shadow">
-        <div class="card-header bg-success text-white text-center">
-            <h4 class="mb-0">Confirmar Reserva</h4>
-        </div>
-        <div class="card-body">
-            <h5 class="card-title text-center mb-4">Kata Archery</h5>
-            
-            <ul class="list-group list-group-flush mb-4">
-                <li class="list-group-item d-flex justify-content-between">
-                    <strong>Data da Aula:</strong> 
-                    <span>{{ horario.get_dia_semana_display }} ({{ data_aula|date:"d/m/Y" }})</span>
-                </li>
-                <li class="list-group-item d-flex justify-content-between">
-                    <strong>Horário:</strong> 
-                    <span>{{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}</span>
-                </li>
-                
-                {% if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0 %}
-                <li class="list-group-item d-flex justify-content-between text-success">
-                    <strong>Plano Mensal Ativo:</strong> <strong>1 Aula será descontada</strong>
-                </li>
-                {% else %}
-                <li class="list-group-item d-flex justify-content-between text-success">
-                    <strong>Valor Antecipado:</strong> <strong>R$ 20,00</strong>
-                </li>
-                {% endif %}
-            </ul>
-
-            {% if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0 %}
-            <div class="alert alert-success text-center" role="alert">
-                <small>Seu saldo atual é de {{ request.user.aulas_restantes }} aulas.</small>
-            </div>
-            {% else %}
-            <div class="alert alert-info text-center" role="alert">
-                <small>Restante (R$ 30,00) a ser pago no local da aula.</small>
-            </div>
-            {% endif %}
-
-            <form method="POST">
-    {% csrf_token %}
-    
-    {% if not user.is_authenticated %}
-        <div class="alert alert-light border">
-            <h6 class="fw-bold mb-3">Preencha para gerar o Pix:</h6>
-            
-            <div class="mb-3">
-                <label class="form-label">Nome Completo</label>
-                <input type="text" name="nome_avulso" class="form-control" placeholder="Seu nome" required>
-            </div>
-            
-            <div class="mb-3">
-                <label class="form-label">WhatsApp</label>
-                <input type="text" name="telefone_avulso" class="form-control" placeholder="(DD) 90000-0000" required>
-            </div>
-        </div>
-    {% else %}
-        <p class="text-success mb-3">
-            <strong>✓ Conectado como:</strong> {{ user.first_name }}
-        </p>
-    {% endif %}
-
-    <button type="submit" class="btn btn-success w-100 fw-bold mt-2">
-        {% if user.tipo_plano == 'MENSAL' and user.aulas_restantes > 0 %}
-            Confirmar Reserva (Usar Saldo)
-        {% else %}
-            Gerar Pix de R$ 20,00
-        {% endif %}
-    </button>
-</form>
-
-<div class="card shadow-sm mt-4 border-0 bg-light">
-    <div class="card-body">
-        <h6 class="fw-bold text-secondary d-flex align-items-center mb-3">
-            🎯 Alunos Confirmados nesta Turma
-        </h6>
+{% block content %}
+<div class="row justify-content-center">
+    <div class="col-md-8 col-lg-6">
         
-        <ul class="list-group list-group-flush rounded border">
-            {% for r in reservas_turma %}
-                <li class="list-group-item d-flex align-items-center py-2 small bg-white">
-                    <span class="text-success me-2">●</span>
-                    <span>
-                        {% if r.atleta %}
-                            {{ r.atleta.first_name }} {{ r.atleta.last_name|slice:":1" }}.
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <h4 class="card-title text-primary fw-bold mb-3">Confirmar Reserva</h4>
+                
+                <p class="text-light mb-1"><strong>Dia:</strong> {{ horario.get_dia_semana_display }} ({{ data_aula|date:"d/m" }})</p>
+                <p class="text-light mb-4"><strong>Horário:</strong> {{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}</p>
+
+                <form method="POST">
+                    {% csrf_token %}
+                    
+                    {% if not user.is_authenticated %}
+                        <div class="alert alert-dark border-secondary">
+                            <h6 class="fw-bold text-light mb-3">Preencha para gerar o Pix:</h6>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-light small">Nome Completo</label>
+                                <input type="text" name="nome_avulso" class="form-control bg-dark text-light border-secondary" placeholder="Seu nome" required>
+                            </div>
+                            
+                            <div class="mb-3">
+                                <label class="form-label text-light small">WhatsApp</label>
+                                <input type="text" name="telefone_avulso" class="form-control bg-dark text-light border-secondary" placeholder="(DD) 90000-0000" required>
+                            </div>
+                        </div>
+                    {% else %}
+                        <p class="text-primary mb-3">
+                            <strong>✓ Conectado como:</strong> {{ user.first_name }}
+                        </p>
+                    {% endif %}
+
+                    <button type="submit" class="btn btn-roxo w-100 fw-bold mt-2 py-2">
+                        {% if user.tipo_plano == 'MENSAL' and user.aulas_restantes > 0 %}
+                            Confirmar Reserva (Usar Saldo)
                         {% else %}
-                            {{ r.nome_avulso }}
+                            Gerar Pix de R$ 20,00
                         {% endif %}
-                    </span>
-                </li>
-            {% empty %}
-                <li class="list-group-item text-muted text-center py-3 bg-white small italic">
-                    Ainda não há arqueiros inscritos nesta turma. Seja o primeiro!
-                </li>
-            {% endfor %}
-        </ul>
-    </div>
-</div>
-            
-            <div class="text-center mt-3">
-                <a href="{% url 'lista_horarios' %}" class="text-decoration-none text-muted">Voltar para horários</a>
+                    </button>
+                </form>
             </div>
         </div>
+
+        <div class="card shadow-sm border-0">
+            <div class="card-body">
+                <h6 class="fw-bold text-primary d-flex align-items-center mb-3">
+                    🎯 Alunos Confirmados nesta Turma
+                </h6>
+                
+                <ul class="list-group list-group-flush rounded border border-secondary">
+                    {% for r in reservas_turma %}
+                        <li class="list-group-item d-flex align-items-center py-2 small" style="background-color: #1a1a1a; border-color: #33124d;">
+                            <span class="text-primary me-2">●</span>
+                            <span class="text-light">
+                                {% if r.atleta %}
+                                    {{ r.atleta.first_name }} {{ r.atleta.last_name|slice:":1" }}.
+                                {% else %}
+                                    {{ r.nome_avulso }}
+                                {% endif %}
+                            </span>
+                        </li>
+                    {% empty %}
+                        <li class="list-group-item text-muted text-center py-3 small fst-italic" style="background-color: #1a1a1a; border-color: #33124d;">
+                            Ainda não há arqueiros inscritos nesta turma. Seja o primeiro!
+                        </li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
     </div>
 </div>
-
-</body>
-</html>
+{% endblock %}
