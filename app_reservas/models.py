@@ -85,4 +85,10 @@ class Reserva(models.Model):
         ordering = ['-data_aula', 'horario__hora_inicio']
 
     def __str__(self):
-        return f"{self.atleta.first_name} - {self.data_aula.strftime('%d/%m/%Y')} ({self.status})"
+        # Se for um aluno logado, usa o nome dele. Se não, usa o nome do avulso.
+        nome = self.atleta.first_name if self.atleta else self.nome_avulso
+        
+        # Opcional: formatação de data para ficar bonito no painel
+        data_formatada = self.data_aula.strftime("%d/%m") if self.data_aula else "Sem data"
+        
+        return f"{nome} - {self.horario.get_dia_semana_display()} ({data_formatada})"
