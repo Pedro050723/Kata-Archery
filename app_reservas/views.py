@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.conf import settings
 from django.contrib.admin.views.decorators import staff_member_required
 from datetime import datetime, timedelta, date
+from django.utils import timezone
 import mercadopago
 from .models import Horario, Reserva
 
@@ -25,7 +26,7 @@ def lista_horarios(request):
         'SAB': 5
     }
     
-    agora = datetime.now()
+    agora = timezone.localtime(timezone.now())
     hoje = agora.date()
     
     # 3. Passa por cada horário calculando a sua próxima data real
@@ -60,7 +61,7 @@ def detalhes_reserva(request, horario_id):
         'SAB': 5
     }
     dia_alvo = mapa_dias[horario.dia_semana]
-    agora = datetime.now()
+    agora = timezone.localtime(timezone.now())
     hoje = agora.date()
     dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
     if dias_faltando == 0 and agora.time() > horario.hora_inicio:
