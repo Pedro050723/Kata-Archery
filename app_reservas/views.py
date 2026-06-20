@@ -50,45 +50,38 @@ def lista_horarios(request):
 def detalhes_reserva(request, horario_id):
     horario = get_object_or_404(Horario, id=horario_id)
     
-    # --- Cálculo da Data (Mantém igual) ---
-    mapa_dias = {
-        'DOM': 6, 
-        'SEG': 0, 
-        'TER': 1, 
-        'QUA': 2, 
-        'QUI': 3, 
-        'SEX': 4, 
-        'SAB': 5
-    }
-    dia_alvo = mapa_dias[horario.dia_semana]
+    # --- Cálculo da Data ---
+    mapa_dias = {'DOM': 6, 'SEG': 0, 'TER': 1, 'QUA': 2, 'QUI': 3, 'SEX': 4, 'SAB': 5}
     agora = timezone.localtime(timezone.now())
     hoje = agora.date()
+    dia_alvo = mapa_dias[horario.dia_semana]
     dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
     if dias_faltando == 0 and agora.time() > horario.hora_inicio:
         dias_faltando = 7
     data_proxima_aula = hoje + timedelta(days=dias_faltando)
 
+    # --- NOVA BUSCA: Recolha as reservas ativas para esta turma ---
+    reservas_turma = Reserva.objects.filter(
+        horario=horario, data_aula=data_proxima_aula
+    ).exclude(status='CANCELADO')
+
     # --- Lógica do Botão Confirmar (POST) ---
     if request.method == 'POST':
-        vagas_ocupadas = Reserva.objects.filter(
-            horario=horario, data_aula=data_proxima_aula
-        ).exclude(status='CANCELADO').count()
+        # Conta o total usando a nossa busca já existente
+        vagas_ocupadas = reservas_turma.count()
 
         if vagas_ocupadas >= horario.vagas_totais:
             messages.error(request, 'Desculpe, a última vaga foi preenchida.')
             return redirect('lista_horarios')
         
-        # Variáveis de apoio para separar logados de avulsos
         atleta_logado = None
         nome_comprador = ""
         telefone_comprador = ""
 
-        # --- SE O USUÁRIO ESTIVER LOGADO (Mensalista ou Avulso com conta) ---
         if request.user.is_authenticated:
             atleta_logado = request.user
             nome_comprador = request.user.first_name
             
-            # Se for mensalista e tiver saldo, usa o pacote e encerra aqui
             if request.user.tipo_plano == 'MENSAL' and getattr(request.user, 'aulas_restantes', 0) > 0:
                 Reserva.objects.create(
                     atleta=request.user,
@@ -101,9 +94,7 @@ def detalhes_reserva(request, horario_id):
                 messages.success(request, f'Reserva confirmada! Você usou 1 aula do seu pacote. Restam: {request.user.aulas_restantes}.')
                 return redirect('lista_horarios')
                 
-        # --- SE NÃO ESTIVER LOGADO (Avulso sem conta) ---
         else:
-            # Captura os dados preenchidos no formulário da tela
             nome_comprador = request.POST.get('nome_avulso', 'Visitante')
             telefone_comprador = request.POST.get('telefone_avulso', '')
             
@@ -111,9 +102,9 @@ def detalhes_reserva(request, horario_id):
                 messages.error(request, 'Por favor, preencha seu Nome e WhatsApp.')
                 return redirect('detalhes_reserva', horario_id=horario.id)
 
-        # 1. Salva a reserva inicial como PENDENTE (Para gerar o Pix)
+        # Guarda a reserva inicial como PENDENTE
         nova_reserva = Reserva.objects.create(
-            atleta=atleta_logado, # Vai ficar nulo se for visitante
+            atleta=atleta_logado,
             nome_avulso=nome_comprador if not atleta_logado else "",
             telefone_avulso=telefone_comprador if not atleta_logado else "",
             horario=horario,
@@ -121,10 +112,8 @@ def detalhes_reserva(request, horario_id):
             status='PENDENTE'
         )
 
-        # 2. Configura o SDK do Mercado Pago
         sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
 
-        # 3. Prepara os dados do Pix (E-mail fictício exigido pela API)
         payment_data = {
             "transaction_amount": 20.00,
             "description": f"Reserva Kata Archery - {horario.get_dia_semana_display()}",
@@ -135,7 +124,6 @@ def detalhes_reserva(request, horario_id):
             }
         }
 
-        # 4. Faz a requisição para gerar o Pix
         result = sdk.payment().create(payment_data)
         payment = result["response"]
 
@@ -144,15 +132,12 @@ def detalhes_reserva(request, horario_id):
             messages.error(request, 'Erro ao gerar o pagamento. Verifique com o clube.')
             return redirect('lista_horarios')
 
-        # 5. Salva o ID da transação no banco
         nova_reserva.id_transacao_mp = str(payment["id"])
         nova_reserva.save()
 
-        # 6. Extrai os dados do QR Code
         pix_copia_cola = payment['point_of_interaction']['transaction_data']['qr_code']
         qr_code_img = payment['point_of_interaction']['transaction_data']['qr_code_base64']
 
-        # 7. Redireciona para a tela mostrando o Pix
         contexto_pix = {
             'reserva': nova_reserva,
             'pix_copia_cola': pix_copia_cola,
@@ -163,9 +148,11 @@ def detalhes_reserva(request, horario_id):
     # --- Lógica de Exibir a Tela (GET) ---
     contexto = {
         'horario': horario,
-        'data_aula': data_proxima_aula
+        'data_aula': data_proxima_aula,
+        'reservas_turma': reservas_turma  # <-- Enviando a lista de alunos para a página
     }
     return render(request, 'app_reservas/detalhes_reserva.html', contexto)
+
 @csrf_exempt
 def mercadopago_webhook(request):
     if request.method == 'POST':

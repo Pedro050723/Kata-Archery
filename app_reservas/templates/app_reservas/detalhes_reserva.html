@@ -78,6 +78,33 @@
         {% endif %}
     </button>
 </form>
+
+<div class="card shadow-sm mt-4 border-0 bg-light">
+    <div class="card-body">
+        <h6 class="fw-bold text-secondary d-flex align-items-center mb-3">
+            🎯 Alunos Confirmados nesta Turma
+        </h6>
+        
+        <ul class="list-group list-group-flush rounded border">
+            {% for r in reservas_turma %}
+                <li class="list-group-item d-flex align-items-center py-2 small bg-white">
+                    <span class="text-success me-2">●</span>
+                    <span>
+                        {% if r.atleta %}
+                            {{ r.atleta.first_name }} {{ r.atleta.last_name|slice:":1" }}.
+                        {% else %}
+                            {{ r.nome_avulso }}
+                        {% endif %}
+                    </span>
+                </li>
+            {% empty %}
+                <li class="list-group-item text-muted text-center py-3 bg-white small italic">
+                    Ainda não há arqueiros inscritos nesta turma. Seja o primeiro!
+                </li>
+            {% endfor %}
+        </ul>
+    </div>
+</div>
             
             <div class="text-center mt-3">
                 <a href="{% url 'lista_horarios' %}" class="text-decoration-none text-muted">Voltar para horários</a>
