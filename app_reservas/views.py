@@ -11,10 +11,36 @@ import mercadopago
 from .models import Horario, Reserva
 
 def lista_horarios(request):
-    # Busca todos os horários marcados como 'ativo=True'
+    # 1. Busca todos os horários ativos
     horarios = Horario.objects.filter(ativo=True)
     
-    # Prepara os dados para enviar ao HTML
+    # 2. Mapa completo com os 7 dias da semana
+    mapa_dias = {
+        'DOM': 6, 
+        'SEG': 0, 
+        'TER': 1, 
+        'QUA': 2, 
+        'QUI': 3, 
+        'SEX': 4, 
+        'SAB': 5
+    }
+    
+    agora = datetime.now()
+    hoje = agora.date()
+    
+    # 3. Passa por cada horário calculando a sua próxima data real
+    for horario in horarios:
+        dia_alvo = mapa_dias[horario.dia_semana]
+        dias_faltando = (dia_alvo - hoje.weekday() + 7) % 7
+        
+        # Se a aula for hoje, mas o horário já passou, agenda para a semana que vem
+        if dias_faltando == 0 and agora.time() > horario.hora_inicio:
+            dias_faltando = 7
+            
+        # Cria um atributo temporário na memória chamado 'proxima_data'
+        horario.proxima_data = hoje + timedelta(days=dias_faltando)
+    
+    # 4. Envia os dados atualizados para o HTML
     contexto = {
         'horarios': horarios
     }

@@ -31,27 +31,33 @@
         <div class="col-12 col-md-6 mb-3">
             <div class="card shadow-sm">
                 <div class="card-body text-center">
-                    <h5 class="card-title text-primary">
+                    <h5 class="card-title text-primary mb-1">
                         {{ horario.get_dia_semana_display }}
                     </h5>
-                    <p class="card-text fs-4 fw-bold">
+                    
+                    <p class="text-secondary small mb-3">
+                        Próxima aula: <span class="fw-bold text-dark">{{ horario.proxima_data|date:"d/m" }}</span>
+                    </p>
+
+                    <p class="card-text fs-4 fw-bold mb-2">
                         {{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}
                     </p>
-                    <p class="text-muted">Vagas Totais: {{ horario.vagas_totais }}</p>
+                    
+                    <p class="text-muted small">Vagas Totais: {{ horario.vagas_totais }}</p>
                     
                     <a href="{% url 'detalhes_reserva' horario.id %}" class="btn btn-success w-100 py-2 fw-bold">
-                    Reservar Vaga (R$ 20,00)
+                        Reservar Vaga (R$ 20,00)
                     </a>
                 </div>
             </div>
         </div>
-        {% empty %}
+{% empty %}
         <div class="col-12 text-center">
             <div class="alert alert-warning" role="alert">
                 Nenhum horário disponível no momento.
             </div>
         </div>
-        {% endfor %}
+{% endfor %}
     </div>
 </div>
 
