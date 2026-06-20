@@ -20,6 +20,19 @@ class HorarioAdmin(admin.ModelAdmin):
 
 @admin.register(Reserva)
 class ReservaAdmin(admin.ModelAdmin):
-    list_display = ('atleta', 'horario', 'data_aula', 'status', 'criado_em')
-    list_filter = ('status', 'data_aula', 'horario__dia_semana')
-    search_fields = ('atleta__first_name', 'atleta__last_name')
+    # As colunas que vão aparecer na lista principal
+    list_display = ('id', 'obter_nome_aluno', 'telefone_avulso', 'data_aula', 'horario', 'status')
+    
+    # Filtros laterais para facilitar a busca no dia a dia
+    list_filter = ('status', 'data_aula')
+    
+    # Barra de pesquisa (busca tanto pelo nome da conta quanto pelo nome digitado)
+    search_fields = ('atleta__first_name', 'atleta__last_name', 'nome_avulso', 'telefone_avulso', 'id_transacao_mp')
+
+    # Função inteligente para exibir o nome correto na coluna
+    def obter_nome_aluno(self, obj):
+        if obj.atleta:
+            return f"{obj.atleta.first_name} {obj.atleta.last_name} (Logado)"
+        return f"{obj.nome_avulso} (Avulso)"
+    
+    obter_nome_aluno.short_description = 'Nome do Aluno'

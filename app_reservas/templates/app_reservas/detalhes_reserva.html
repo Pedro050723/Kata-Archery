@@ -48,17 +48,36 @@
             {% endif %}
 
             <form method="POST">
-                {% csrf_token %}
-                {% if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0 %}
-                    <button type="submit" class="btn btn-primary w-100 fw-bold py-2">
-                        Confirmar Presença (Usar Plano)
-                    </button>
-                {% else %}
-                    <button type="submit" class="btn btn-success w-100 fw-bold py-2">
-                        Confirmar e Gerar Pix
-                    </button>
-                {% endif %}
-            </form>
+    {% csrf_token %}
+    
+    {% if not user.is_authenticated %}
+        <div class="alert alert-light border">
+            <h6 class="fw-bold mb-3">Preencha para gerar o Pix:</h6>
+            
+            <div class="mb-3">
+                <label class="form-label">Nome Completo</label>
+                <input type="text" name="nome_avulso" class="form-control" placeholder="Seu nome" required>
+            </div>
+            
+            <div class="mb-3">
+                <label class="form-label">WhatsApp</label>
+                <input type="text" name="telefone_avulso" class="form-control" placeholder="(DD) 90000-0000" required>
+            </div>
+        </div>
+    {% else %}
+        <p class="text-success mb-3">
+            <strong>✓ Conectado como:</strong> {{ user.first_name }}
+        </p>
+    {% endif %}
+
+    <button type="submit" class="btn btn-success w-100 fw-bold mt-2">
+        {% if user.tipo_plano == 'MENSAL' and user.aulas_restantes > 0 %}
+            Confirmar Reserva (Usar Saldo)
+        {% else %}
+            Gerar Pix de R$ 20,00
+        {% endif %}
+    </button>
+</form>
             
             <div class="text-center mt-3">
                 <a href="{% url 'lista_horarios' %}" class="text-decoration-none text-muted">Voltar para horários</a>

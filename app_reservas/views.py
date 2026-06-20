@@ -20,12 +20,19 @@ def lista_horarios(request):
     }
     return render(request, 'app_reservas/lista_horarios.html', contexto)
 
-@login_required
 def detalhes_reserva(request, horario_id):
     horario = get_object_or_404(Horario, id=horario_id)
     
     # --- Cálculo da Data (Mantém igual) ---
-    mapa_dias = {'SEG': 0, 'TER': 1, 'QUI': 3, 'SAB': 5}
+    mapa_dias = {
+        'DOM': 6, 
+        'SEG': 0, 
+        'TER': 1, 
+        'QUA': 2, 
+        'QUI': 3, 
+        'SEX': 4, 
+        'SAB': 5
+    }
     dia_alvo = mapa_dias[horario.dia_semana]
     agora = datetime.now()
     hoje = agora.date()
@@ -44,28 +51,44 @@ def detalhes_reserva(request, horario_id):
             messages.error(request, 'Desculpe, a última vaga foi preenchida.')
             return redirect('lista_horarios')
         
-        # --- NOVA LÓGICA: Mensalista ---
-        # Verifica se é plano mensal e se tem saldo de aulas
-        if request.user.tipo_plano == 'MENSAL' and request.user.aulas_restantes > 0:
-            
-            # Cria a reserva já confirmada
-            nova_reserva = Reserva.objects.create(
-                atleta=request.user,
-                horario=horario,
-                data_aula=data_proxima_aula,
-                status='PAGO' # O status 'PAGO' garante o nome na lista
-            )
-            
-            # Desconta 1 aula do pacote do aluno e salva no banco
-            request.user.aulas_restantes -= 1
-            request.user.save()
+        # Variáveis de apoio para separar logados de avulsos
+        atleta_logado = None
+        nome_comprador = ""
+        telefone_comprador = ""
 
-            messages.success(request, f'Reserva confirmada! Você usou 1 aula do seu pacote. Restam: {request.user.aulas_restantes}.')
-            return redirect('lista_horarios')
+        # --- SE O USUÁRIO ESTIVER LOGADO (Mensalista ou Avulso com conta) ---
+        if request.user.is_authenticated:
+            atleta_logado = request.user
+            nome_comprador = request.user.first_name
+            
+            # Se for mensalista e tiver saldo, usa o pacote e encerra aqui
+            if request.user.tipo_plano == 'MENSAL' and getattr(request.user, 'aulas_restantes', 0) > 0:
+                Reserva.objects.create(
+                    atleta=request.user,
+                    horario=horario,
+                    data_aula=data_proxima_aula,
+                    status='PAGO'
+                )
+                request.user.aulas_restantes -= 1
+                request.user.save()
+                messages.success(request, f'Reserva confirmada! Você usou 1 aula do seu pacote. Restam: {request.user.aulas_restantes}.')
+                return redirect('lista_horarios')
+                
+        # --- SE NÃO ESTIVER LOGADO (Avulso sem conta) ---
+        else:
+            # Captura os dados preenchidos no formulário da tela
+            nome_comprador = request.POST.get('nome_avulso', 'Visitante')
+            telefone_comprador = request.POST.get('telefone_avulso', '')
+            
+            if not nome_comprador or not telefone_comprador:
+                messages.error(request, 'Por favor, preencha seu Nome e WhatsApp.')
+                return redirect('detalhes_reserva', horario_id=horario.id)
 
-        # 1. Salva a reserva inicial como PENDENTE
+        # 1. Salva a reserva inicial como PENDENTE (Para gerar o Pix)
         nova_reserva = Reserva.objects.create(
-            atleta=request.user,
+            atleta=atleta_logado, # Vai ficar nulo se for visitante
+            nome_avulso=nome_comprador if not atleta_logado else "",
+            telefone_avulso=telefone_comprador if not atleta_logado else "",
             horario=horario,
             data_aula=data_proxima_aula,
             status='PENDENTE'
@@ -74,18 +97,14 @@ def detalhes_reserva(request, horario_id):
         # 2. Configura o SDK do Mercado Pago
         sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
 
-        # 3. Prepara os dados do Pix
-        # Nota: O Mercado Pago exige um e-mail. Se o usuário não tiver, passamos um fictício.
-        email_aluno = "test@testuser.com"
-        
+        # 3. Prepara os dados do Pix (E-mail fictício exigido pela API)
         payment_data = {
             "transaction_amount": 20.00,
             "description": f"Reserva Kata Archery - {horario.get_dia_semana_display()}",
             "payment_method_id": "pix",
             "payer": {
-                "email": email_aluno,
-                "first_name": request.user.first_name,
-                "last_name": request.user.last_name,
+                "email": "test@testuser.com", 
+                "first_name": nome_comprador,
             }
         }
 
@@ -93,21 +112,16 @@ def detalhes_reserva(request, horario_id):
         result = sdk.payment().create(payment_data)
         payment = result["response"]
 
-        print("\n--- RETORNO REAL DO MERCADO PAGO ---")
-        print(payment)
-        print("------------------------------------\n")
-
-        # Se houver erro na API (ex: chave errada), cancela a reserva e avisa
         if "id" not in payment:
             nova_reserva.delete()
             messages.error(request, 'Erro ao gerar o pagamento. Verifique com o clube.')
             return redirect('lista_horarios')
 
-        # 5. Salva o ID da transação no banco (Essencial para o Webhook depois!)
+        # 5. Salva o ID da transação no banco
         nova_reserva.id_transacao_mp = str(payment["id"])
         nova_reserva.save()
 
-        # 6. Extrai o "Copia e Cola" e o QR Code em Base64
+        # 6. Extrai os dados do QR Code
         pix_copia_cola = payment['point_of_interaction']['transaction_data']['qr_code']
         qr_code_img = payment['point_of_interaction']['transaction_data']['qr_code_base64']
 

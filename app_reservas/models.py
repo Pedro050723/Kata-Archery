@@ -1,5 +1,6 @@
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from django.conf import settings
 
 class Atleta(AbstractUser):
     TIPO_PLANO_CHOICES = [
@@ -23,9 +24,12 @@ class Atleta(AbstractUser):
 
 class Horario(models.Model):
     DIAS_SEMANA = [
+        ('DOM', 'Domingo'),
         ('SEG', 'Segunda-feira'),
         ('TER', 'Terça-feira'),
+        ('QUA', 'Quarta-feira'),
         ('QUI', 'Quinta-feira'),
+        ('SEX', 'Sexta-feira'),
         ('SAB', 'Sábado'),
     ]
 
@@ -53,10 +57,17 @@ class Reserva(models.Model):
         ('FALTOU', 'Faltou'),
     ]
 
-    atleta = models.ForeignKey(Atleta, on_delete=models.CASCADE, related_name='reservas')
+    atleta = models.ForeignKey(
+        settings.AUTH_USER_MODEL, 
+        on_delete=models.CASCADE, 
+        null=True, 
+        blank=True
+    )
     horario = models.ForeignKey(Horario, on_delete=models.PROTECT, related_name='reservas_horario')
     data_aula = models.DateField() # Para saber qual terça-feira específica é a aula
     status = models.CharField(max_length=10, choices=STATUS_PAGAMENTO, default='PENDENTE')
+    nome_avulso = models.CharField(max_length=100, blank=True, null=True)
+    telefone_avulso = models.CharField(max_length=20, blank=True, null=True)
     
     # Rastreabilidade para o Webhook do Mercado Pago
     id_transacao_mp = models.CharField(max_length=255, blank=True, null=True) 
