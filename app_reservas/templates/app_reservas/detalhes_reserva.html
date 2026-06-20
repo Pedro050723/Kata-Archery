@@ -56,10 +56,10 @@
                         <li class="list-group-item d-flex align-items-center py-2 small" style="background-color: #1a1a1a; border-color: #33124d;">
                             <span class="text-primary me-2">●</span>
                             <span class="text-light">
-                                {% if r.atleta %}
-                                    {{ r.atleta.first_name }} {{ r.atleta.last_name|slice:":1" }}.
+                                {% if reserva.atleta %}
+                                    {{ reserva.atleta.first_name }}
                                 {% else %}
-                                    {{ r.nome_avulso }}
+                                    {{ reserva.nome_avulso }} (Avulso)
                                 {% endif %}
                             </span>
                         </li>
