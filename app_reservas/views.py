@@ -112,14 +112,22 @@ def detalhes_reserva(request, horario_id):
             email_comprador = f"avulso.{telefone_limpo}@kataarchery.com"
 
         # CORREÇÃO BUG 1: Evitar duplicação por F5 (Reaproveita se já existir Pendente)
+        # 3.2 Cria a Reserva como PENDENTE no Banco de Dados (Evitando Duplicação)
         if request.user.is_authenticated:
             reserva = Reserva.objects.filter(
                 atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
             ).first()
             
             if not reserva:
+                # CORREÇÃO: Se o primeiro nome estiver em branco, usa o username como garantia
+                nome_gravar = request.user.first_name if request.user.first_name else request.user.username
+                
                 reserva = Reserva.objects.create(
-                    atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
+                    atleta=request.user,
+                    nome_avulso=nome_gravar, # <-- Agora gravamos o seu nome real aqui também!
+                    horario=horario,
+                    data_aula=data_proxima_aula,
+                    status='PENDENTE'
                 )
         else:
             reserva = Reserva.objects.filter(
@@ -128,7 +136,11 @@ def detalhes_reserva(request, horario_id):
             
             if not reserva:
                 reserva = Reserva.objects.create(
-                    nome_avulso=nome_comprador, telefone_avulso=telefone_comprador, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
+                    nome_avulso=nome_comprador,
+                    telefone_avulso=telefone_comprador,
+                    horario=horario,
+                    data_aula=data_proxima_aula,
+                    status='PENDENTE'
                 )
 
         # 3.3 Dados do Mercado Pago
@@ -140,7 +152,8 @@ def detalhes_reserva(request, horario_id):
                 "email": email_comprador,
                 "first_name": nome_comprador,
             },
-            "external_reference": str(reserva.id)
+            "external_reference": str(reserva.id),
+            "notification_url": "https://www.clubekataarchery.com.br/webhook/pix/"
         }
 
         try:
