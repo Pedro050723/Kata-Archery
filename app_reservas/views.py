@@ -85,20 +85,34 @@ def detalhes_reserva(request, horario_id):
             messages.error(request, 'Desculpe, esta turma já está lotada.')
             return redirect('detalhes_reserva', horario_id=horario.id)
 
-        # 3.1 Identificação do Usuário
+        # 3.1 Identificação do Usuário e Lógica de Planos
         if request.user.is_authenticated:
-            nome_comprador = request.user.first_name
+            nome_comprador = request.user.first_name if request.user.first_name else request.user.username
             email_comprador = request.user.email if request.user.email else f"{request.user.username}@kataarchery.com"
             
-            # Mensalista com saldo aprova na hora
+            # CENÁRIO A: É Mensalista e tem saldo no pacote
             if request.user.tipo_plano == 'MENSAL' and getattr(request.user, 'aulas_restantes', 0) > 0:
                 Reserva.objects.create(
-                    atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PAGO'
+                    atleta=request.user, nome_avulso=nome_comprador, horario=horario, data_aula=data_proxima_aula, status='PAGO'
                 )
                 request.user.aulas_restantes -= 1
                 request.user.save()
-                messages.success(request, f'Reserva confirmada! Restam: {request.user.aulas_restantes} aulas.')
+                messages.success(request, f'Reserva confirmada! Restam: {request.user.aulas_restantes} aulas no seu pacote.')
                 return redirect('lista_horarios')
+                
+            # CENÁRIO B: É Bolsista (Passe livre no site, acerta no local)
+            elif getattr(request.user, 'tipo_plano', '') == 'BOLSISTA':
+                Reserva.objects.create(
+                    atleta=request.user, nome_avulso=nome_comprador, horario=horario, data_aula=data_proxima_aula, status='PAGO'
+                )
+                messages.success(request, 'Reserva confirmada! Tenha uma boa sessão!')
+                return redirect('lista_horarios')
+                
+            # CENÁRIO C: É Mensalista, mas o saldo de aulas acabou (0). 
+            # O sistema vai ignorar os "ifs" acima, descer o código e gerar um Pix avulso para ele.
+            elif request.user.tipo_plano == 'MENSAL':
+                messages.warning(request, 'Seu pacote mensal acabou. Esta reserva será cobrada como aula avulsa.')
+                # (Não tem "return" aqui porque ele precisa descer para o código do Pix logo abaixo)
                 
         else:
             nome_comprador = request.POST.get('nome_avulso', 'Visitante')

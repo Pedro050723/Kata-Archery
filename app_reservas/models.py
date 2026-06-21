@@ -6,10 +6,11 @@ class Atleta(AbstractUser):
     TIPO_PLANO_CHOICES = [
         ('AVULSO', 'Avulso'),
         ('MENSAL', 'Mensalista'),
+        ('BOLSISTA', 'Bolsista'),
     ]
     
     tipo_plano = models.CharField(
-        max_length=10, 
+        max_length=20, 
         choices=TIPO_PLANO_CHOICES, 
         default='AVULSO'
     )
