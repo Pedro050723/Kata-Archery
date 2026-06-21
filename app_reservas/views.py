@@ -64,7 +64,7 @@ def detalhes_reserva(request, horario_id):
             dias_faltando = 7
         data_proxima_aula = hoje + timedelta(days=dias_faltando)
 
-    # --- 2. VERIFICAÇÃO DE VAGAS (Bloqueia o espaço no banco) ---
+    # --- 2. VERIFICAÇÃO DE VAGAS ---
     vagas_ocupadas = Reserva.objects.filter(
         horario=horario, 
         data_aula=data_proxima_aula, 
@@ -72,7 +72,6 @@ def detalhes_reserva(request, horario_id):
     ).count()
     vagas_restantes = horario.vagas_totais - vagas_ocupadas
 
-    # CORREÇÃO BUG 2: Lista pública mostra APENAS quem já pagou
     reservas_confirmadas_tela = Reserva.objects.filter(
         horario=horario,
         data_aula=data_proxima_aula,
@@ -81,6 +80,9 @@ def detalhes_reserva(request, horario_id):
 
     # --- 3. FLUXO DE RESERVA (MÉTODO POST) ---
     if request.method == 'POST':
+        # Esse print vai carimbar o server.log assim que o botão for clicado de verdade
+        print(f"\n[DEBUG] POST Recebido! Usuário: {request.user} | Plano: {getattr(request.user, 'tipo_plano', 'Nenhum')}")
+        
         if vagas_restantes <= 0:
             messages.error(request, 'Desculpe, esta turma já está lotada.')
             return redirect('detalhes_reserva', horario_id=horario.id)
@@ -90,8 +92,11 @@ def detalhes_reserva(request, horario_id):
             nome_comprador = request.user.first_name if request.user.first_name else request.user.username
             email_comprador = request.user.email if request.user.email else f"{request.user.username}@kataarchery.com"
             
+            # Tratamento robusto para evitar problemas de maiúsculas/minúsculas
+            plano_usuario = str(getattr(request.user, 'tipo_plano', 'AVULSO')).upper()
+            
             # CENÁRIO A: É Mensalista e tem saldo no pacote
-            if request.user.tipo_plano == 'MENSAL' and getattr(request.user, 'aulas_restantes', 0) > 0:
+            if plano_usuario == 'MENSAL' and getattr(request.user, 'aulas_restantes', 0) > 0:
                 Reserva.objects.create(
                     atleta=request.user, nome_avulso=nome_comprador, horario=horario, data_aula=data_proxima_aula, status='PAGO'
                 )
@@ -100,19 +105,17 @@ def detalhes_reserva(request, horario_id):
                 messages.success(request, f'Reserva confirmada! Restam: {request.user.aulas_restantes} aulas no seu pacote.')
                 return redirect('lista_horarios')
                 
-            # CENÁRIO B: É Bolsista (Passe livre no site, acerta no local)
-            elif getattr(request.user, 'tipo_plano', '') == 'BOLSISTA':
+            # CENÁRIO B: É Bolsista (Passe livre, confirma direto)
+            elif plano_usuario == 'BOLSISTA':
                 Reserva.objects.create(
                     atleta=request.user, nome_avulso=nome_comprador, horario=horario, data_aula=data_proxima_aula, status='PAGO'
                 )
-                messages.success(request, 'Reserva confirmada! Tenha uma boa sessão!')
+                messages.success(request, 'Reserva de Bolsista confirmada! Alinhe o pagamento direto com o instrutor.')
                 return redirect('lista_horarios')
                 
-            # CENÁRIO C: É Mensalista, mas o saldo de aulas acabou (0). 
-            # O sistema vai ignorar os "ifs" acima, descer o código e gerar um Pix avulso para ele.
-            elif request.user.tipo_plano == 'MENSAL':
+            # CENÁRIO C: É Mensalista sem saldo
+            elif plano_usuario == 'MENSAL':
                 messages.warning(request, 'Seu pacote mensal acabou. Esta reserva será cobrada como aula avulsa.')
-                # (Não tem "return" aqui porque ele precisa descer para o código do Pix logo abaixo)
                 
         else:
             nome_comprador = request.POST.get('nome_avulso', 'Visitante')
@@ -125,20 +128,17 @@ def detalhes_reserva(request, horario_id):
             telefone_limpo = ''.join(filter(str.isdigit, telefone_comprador))
             email_comprador = f"avulso.{telefone_limpo}@kataarchery.com"
 
-        # CORREÇÃO BUG 1: Evitar duplicação por F5 (Reaproveita se já existir Pendente)
-        # 3.2 Cria a Reserva como PENDENTE no Banco de Dados (Evitando Duplicação)
+        # 3.2 Cria a Reserva como PENDENTE para o fluxo do Pix
         if request.user.is_authenticated:
             reserva = Reserva.objects.filter(
                 atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
             ).first()
             
             if not reserva:
-                # CORREÇÃO: Se o primeiro nome estiver em branco, usa o username como garantia
                 nome_gravar = request.user.first_name if request.user.first_name else request.user.username
-                
                 reserva = Reserva.objects.create(
                     atleta=request.user,
-                    nome_avulso=nome_gravar, # <-- Agora gravamos o seu nome real aqui também!
+                    nome_avulso=nome_gravar,
                     horario=horario,
                     data_aula=data_proxima_aula,
                     status='PENDENTE'
@@ -157,7 +157,7 @@ def detalhes_reserva(request, horario_id):
                     status='PENDENTE'
                 )
 
-        # 3.3 Dados do Mercado Pago
+        # 3.3 Integração Mercado Pago
         payment_data = {
             "transaction_amount": 20.00,
             "description": f"Reserva Kata Archery - {horario.get_dia_semana_display()}",
@@ -199,15 +199,14 @@ def detalhes_reserva(request, horario_id):
             messages.error(request, 'Erro interno. Tente novamente.')
             return redirect('detalhes_reserva', horario_id=horario.id)
 
-    # --- 4. EXIBIÇÃO DA TELA (MÉTODO GET) ---
-    contexto = {
+    # CORREÇÃO CRUCIAL AQUI: Passando as variáveis de vagas e alunos para a tela!
+    contexto_tela = {
         'horario': horario,
-        'data_proxima_aula': data_proxima_aula,
         'vagas_restantes': vagas_restantes,
-        'vagas_totais': horario.vagas_totais,
-        'reservas': reservas_confirmadas_tela, # Exibe apenas os confirmados de fato
+        'reservas_confirmadas': reservas_confirmadas_tela,
+        'data_proxima_aula': data_proxima_aula
     }
-    return render(request, 'app_reservas/detalhes_reserva.html', contexto)
+    return render(request, 'detalhes_reserva.html', contexto_tela)
 @csrf_exempt
 def mercadopago_webhook(request):
     if request.method == 'POST':

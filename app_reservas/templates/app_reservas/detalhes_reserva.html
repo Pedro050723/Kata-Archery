@@ -11,37 +11,34 @@
                 <p class="text-light mb-1"><strong>Dia:</strong> {{ horario.get_dia_semana_display }} ({{ data_aula|date:"d/m" }})</p>
                 <p class="text-light mb-4"><strong>Horário:</strong> {{ horario.hora_inicio|time:"H:i" }} às {{ horario.hora_fim|time:"H:i" }}</p>
 
-                <form method="POST">
-                    {% csrf_token %}
-                    
-                    {% if not user.is_authenticated %}
-                        <div class="alert alert-dark border-secondary">
-                            <h6 class="fw-bold text-light mb-3">Preencha para gerar o Pix:</h6>
-                            
-                            <div class="mb-3">
-                                <label class="form-label text-light small">Nome Completo</label>
-                                <input type="text" name="nome_avulso" class="form-control bg-dark text-light border-secondary" placeholder="Seu nome" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label text-light small">WhatsApp</label>
-                                <input type="text" name="telefone_avulso" class="form-control bg-dark text-light border-secondary" placeholder="(DD) 90000-0000" required>
-                            </div>
-                        </div>
-                    {% else %}
-                        <p class="text-primary mb-3">
-                            <strong>✓ Conectado como:</strong> {{ user.first_name }}
-                        </p>
-                    {% endif %}
+                <form method="POST" class="mt-4">
+    {% csrf_token %}
+    
+    {% if not user.is_authenticated %}
+        <div class="mb-3">
+            <label>Nome Completo:</label>
+            <input type="text" name="nome_avulso" class="form-control" required>
+        </div>
+        <div class="mb-3">
+            <label>WhatsApp:</label>
+            <input type="text" name="telefone_avulso" class="form-control" required>
+        </div>
+    {% endif %}
 
-                    <button type="submit" class="btn btn-roxo w-100 fw-bold mt-2 py-2">
-                        {% if user.tipo_plano == 'MENSAL' and user.aulas_restantes > 0 %}
-                            Confirmar Reserva (Usar Saldo)
-                        {% else %}
-                            Gerar Pix de R$ 20,00
-                        {% endif %}
-                    </button>
-                </form>
+    <div class="d-grid gap-2">
+        {% if user.is_authenticated %}
+            {% if user.tipo_plano == 'BOLSISTA' %}
+                <button type="submit" class="btn btn-primary btn-lg">Confirmar Vaga (Bolsista)</button>
+            {% elif user.tipo_plano == 'MENSAL' and user.aulas_restantes > 0 %}
+                <button type="submit" class="btn btn-success btn-lg">Reservar com Crédito ({{ user.aulas_restantes }} rest.)</button>
+            {% else %}
+                <button type="submit" class="btn btn-warning btn-lg">Gerar Pix para Pagamento</button>
+            {% endif %}
+        {% else %}
+            <button type="submit" class="btn btn-warning btn-lg">Solicitar Código Pix</button>
+        {% endif %}
+    </div>
+</form>
             </div>
         </div>
 
