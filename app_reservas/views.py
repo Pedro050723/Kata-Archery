@@ -53,9 +53,8 @@ def detalhes_reserva(request, horario_id):
     # --- 1. CÁLCULO DA DATA DA AULA ---
     if horario.data_exata:
         data_proxima_aula = horario.data_exata
-        # Trava de segurança para eventos únicos que já passaram
         if hoje > data_proxima_aula or (hoje == data_proxima_aula and agora.time() > horario.hora_inicio):
-            messages.error(request, 'Este evento já foi encerrado e não aceita mais reservas.')
+            messages.error(request, 'Este evento já foi encerrado.')
             return redirect('lista_horarios')
     else:
         mapa_dias = {'DOM': 6, 'SEG': 0, 'TER': 1, 'QUA': 2, 'QUI': 3, 'SEX': 4, 'SAB': 5}
@@ -65,34 +64,40 @@ def detalhes_reserva(request, horario_id):
             dias_faltando = 7
         data_proxima_aula = hoje + timedelta(days=dias_faltando)
 
-    # --- 2. VERIFICAÇÃO DE VAGAS ---
-    reservas_confirmadas = Reserva.objects.filter(
+    # --- 2. VERIFICAÇÃO DE VAGAS (Bloqueia o espaço no banco) ---
+    vagas_ocupadas = Reserva.objects.filter(
         horario=horario, 
         data_aula=data_proxima_aula, 
-        status__in=['PAGO', 'PENDENTE'] # Pendentes ocupam vaga temporariamente
-    )
-    vagas_ocupadas = reservas_confirmadas.count()
+        status__in=['PAGO', 'PENDENTE']
+    ).count()
     vagas_restantes = horario.vagas_totais - vagas_ocupadas
 
-    # --- 3. SE O ALUNO CLICOU NO BOTÃO RESERVAR (MÉTODO POST) ---
+    # CORREÇÃO BUG 2: Lista pública mostra APENAS quem já pagou
+    reservas_confirmadas_tela = Reserva.objects.filter(
+        horario=horario,
+        data_aula=data_proxima_aula,
+        status='PAGO'
+    )
+
+    # --- 3. FLUXO DE RESERVA (MÉTODO POST) ---
     if request.method == 'POST':
         if vagas_restantes <= 0:
             messages.error(request, 'Desculpe, esta turma já está lotada.')
             return redirect('detalhes_reserva', horario_id=horario.id)
 
-        # 3.1 Identificação do Usuário (Logado vs Avulso)
+        # 3.1 Identificação do Usuário
         if request.user.is_authenticated:
             nome_comprador = request.user.first_name
             email_comprador = request.user.email if request.user.email else f"{request.user.username}@kataarchery.com"
             
-            # Se for Mensalista/Bolsista com saldo, debita a aula e finaliza
+            # Mensalista com saldo aprova na hora
             if request.user.tipo_plano == 'MENSAL' and getattr(request.user, 'aulas_restantes', 0) > 0:
                 Reserva.objects.create(
                     atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PAGO'
                 )
                 request.user.aulas_restantes -= 1
                 request.user.save()
-                messages.success(request, f'Reserva confirmada! Restam: {request.user.aulas_restantes} aulas no seu pacote.')
+                messages.success(request, f'Reserva confirmada! Restam: {request.user.aulas_restantes} aulas.')
                 return redirect('lista_horarios')
                 
         else:
@@ -103,33 +108,41 @@ def detalhes_reserva(request, horario_id):
                 messages.error(request, 'Por favor, preencha seu Nome e WhatsApp.')
                 return redirect('detalhes_reserva', horario_id=horario.id)
                 
-            # Limpa o telefone e gera um e-mail válido para o avulso (anti-fraude MP)
             telefone_limpo = ''.join(filter(str.isdigit, telefone_comprador))
             email_comprador = f"avulso.{telefone_limpo}@kataarchery.com"
 
-        # 3.2 Cria a Reserva como PENDENTE no Banco de Dados
+        # CORREÇÃO BUG 1: Evitar duplicação por F5 (Reaproveita se já existir Pendente)
         if request.user.is_authenticated:
-            reserva = Reserva.objects.create(
+            reserva = Reserva.objects.filter(
                 atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
-            )
+            ).first()
+            
+            if not reserva:
+                reserva = Reserva.objects.create(
+                    atleta=request.user, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
+                )
         else:
-            reserva = Reserva.objects.create(
+            reserva = Reserva.objects.filter(
                 nome_avulso=nome_comprador, telefone_avulso=telefone_comprador, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
-            )
+            ).first()
+            
+            if not reserva:
+                reserva = Reserva.objects.create(
+                    nome_avulso=nome_comprador, telefone_avulso=telefone_comprador, horario=horario, data_aula=data_proxima_aula, status='PENDENTE'
+                )
 
-        # 3.3 Prepara os Dados do Pix para o Mercado Pago
+        # 3.3 Dados do Mercado Pago
         payment_data = {
-            "transaction_amount": 20.00, # Valor avulso. Pode alterar conforme a sua tabela
+            "transaction_amount": 20.00,
             "description": f"Reserva Kata Archery - {horario.get_dia_semana_display()}",
             "payment_method_id": "pix",
             "payer": {
                 "email": email_comprador,
                 "first_name": nome_comprador,
             },
-            "external_reference": str(reserva.id) # O ID que o Webhook usará para atualizar o status
+            "external_reference": str(reserva.id)
         }
 
-        # 3.4 Comunicação com o Mercado Pago
         try:
             sdk = mercadopago.SDK(settings.MERCADOPAGO_ACCESS_TOKEN)
             payment_response = sdk.payment().create(payment_data)
@@ -148,28 +161,26 @@ def detalhes_reserva(request, horario_id):
                 }
                 return render(request, 'app_reservas/pagamento_pix.html', contexto_pagamento)
             else:
-                # Log oculto do erro e cancelamento da vaga travada
-                print(f"\n--- RETORNO REAL DO MERCADO PAGO ---\n{payment}")
+                print(f"\n--- ERRO MERCADO PAGO ---\n{payment}")
                 reserva.delete()
                 messages.error(request, 'Erro ao gerar o pagamento. Verifique com o clube.')
                 return redirect('detalhes_reserva', horario_id=horario.id)
                 
         except Exception as e:
-            print(f"Erro na API do Mercado Pago: {e}")
+            print(f"Erro na API: {e}")
             reserva.delete()
-            messages.error(request, 'Erro interno ao conectar com o banco. Tente novamente.')
+            messages.error(request, 'Erro interno. Tente novamente.')
             return redirect('detalhes_reserva', horario_id=horario.id)
 
-    # --- 4. SE O ALUNO SÓ ENTROU NA PÁGINA DE DETALHES (MÉTODO GET) ---
+    # --- 4. EXIBIÇÃO DA TELA (MÉTODO GET) ---
     contexto = {
         'horario': horario,
         'data_proxima_aula': data_proxima_aula,
         'vagas_restantes': vagas_restantes,
         'vagas_totais': horario.vagas_totais,
-        'reservas': reservas_confirmadas,
+        'reservas': reservas_confirmadas_tela, # Exibe apenas os confirmados de fato
     }
     return render(request, 'app_reservas/detalhes_reserva.html', contexto)
-
 @csrf_exempt
 def mercadopago_webhook(request):
     if request.method == 'POST':
